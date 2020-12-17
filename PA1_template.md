@@ -73,6 +73,7 @@ head(steps_day)
 
 ```r
 library(ggplot2)
+
 ggplot(steps_day, aes(x=steps)) + 
         geom_histogram(binwidth = 2000,color="black", fill="blue")+
         ggtitle("Steps per day (Bin size: 2000)") +
@@ -85,13 +86,210 @@ ggplot(steps_day, aes(x=steps)) +
 
 ![](PA1_template_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
+2. Mean and median total number of steps taken per day
 
+
+```r
+sprintf("Mean: %.3f" ,mean(steps_day$steps), digits = 3)
+```
+
+```
+## [1] "Mean: 18406.710"
+```
+
+```r
+sprintf("Median : %i" ,median(steps_day$steps), digits = 3)
+```
+
+```
+## [1] "Median : 20525"
+```
 ### What is the average daily activity pattern?
 
+We generate a data.frame with the sum of steps for each interval.
 
+
+```r
+steps_interval <- tapply(data$steps, data$interval, mean,na.rm =TRUE,simplify =  FALSE)
+steps_interval <- data.frame(matrix(unlist(steps_interval),
+                                   nrow=length(steps_interval), byrow=T))
+
+names(steps_interval) <- "steps"
+steps_interval$interval   <- unique(data$interval)
+```
+
+1. Time series plot of the 5-minute interval and the average number of steps taken, averaged across all days 
+
+
+```r
+ggplot(data = steps_interval, aes(x = interval, y = steps))+
+        geom_line(color = "red")+
+        ggtitle("5-minute interval vs Steps") +
+        labs(x = "5-minute interval", y = "Steps")+
+        theme_minimal() +
+        theme(
+           plot.title = element_text(size=15)
+        )
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+2. Interval from 5-minute intervals, on average across all the days in the dataset, contains the maximum number of steps:
+
+
+```r
+sprintf("Interval: %i",steps_interval$interval[which.max(steps_interval$steps)])
+```
+
+```
+## [1] "Interval: 835"
+```
 
 ### Imputing missing values
 
 
+Total number of missing values in the data set
+
+
+```r
+sprintf("Missing Values: %i" ,sum(is.na(data$steps
+                                    )))
+```
+
+```
+## [1] "Missing Values: 2304"
+```
+
+
+We only have missing values in steps, we are going to replace the missing values by the average of the intervals
+
+
+```r
+new_data         <- data
+pos_na           <- is.na(data$steps)
+value_intervals  <- data$interval[pos_na]
+pos_intervals    <- match(value_intervals,steps_interval$interval)
+new_values       <- round(steps_interval$steps[pos_intervals])
+
+new_data$steps[which(pos_na %in%  TRUE)] <- new_values
+```
+
+
+A histogram was made with the new data
+
+
+```r
+steps_day_2 <- tapply(new_data$steps, new_data$date, sum,na.rm =TRUE,simplify =  FALSE)
+steps_day_2 <- data.frame(matrix(unlist(steps_day_2),
+                                   nrow=length(steps_day_2), byrow=T))
+
+names(steps_day_2) <- "steps"
+steps_day_2$date   <- unique(new_data$date)
+
+# Histogram
+
+ggplot(steps_day_2, aes(x=steps)) + 
+        geom_histogram(binwidth = 2000,color="black", fill="red")+
+        ggtitle("Steps per day (Bin size: 2000)") +
+        labs(x = "Steps", y = "Counts")+
+        theme_minimal() +
+        theme(
+           plot.title = element_text(size=15)
+        )
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+Mean and median total number of steps taken per day by new data
+
+
+```r
+sprintf("Mean: %.3f" ,mean(steps_day_2$steps), digits = 3)
+```
+
+```
+## [1] "Mean: 21184.000"
+```
+
+```r
+sprintf("Median : %i" ,median(steps_day_2$steps), digits = 3)
+```
+
+```
+## [1] "Median : 21641"
+```
+
+Do these values differ from the estimates from the first part of the assignment?
+
+  * Values differ.
+  
+What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+  * The values change when incorporating new values, which     could alter what we want to evaluate if we do not do it    correctly.
+
 
 ### Are there differences in activity patterns between weekdays and weekends?
+
+1. We add a new variable "days" to the data.frame "new_data", to be able to differentiate the days between week and weekend
+
+
+```r
+days     <- weekdays(new_data$date)
+ind_days <- days == "Saturday" | days == "Sunday"
+
+days[ind_days]  <- "weekend"
+days[!ind_days] <- "weekday"
+
+new_data$days  <- days
+```
+
+2. Make a panel plot containing a time series plot
+
+
+```r
+# Data weekday
+data_weekday <- subset(new_data, days =="weekday" )
+
+steps_interval_weekday <- tapply(data_weekday$steps, data_weekday$interval,
+                                 mean,na.rm =TRUE,simplify =  FALSE)
+steps_interval_weekday <- data.frame(matrix(unlist(steps_interval_weekday),
+                                   nrow=length(steps_interval_weekday), byrow=T))
+
+names(steps_interval_weekday) <- "steps"
+steps_interval_weekday$interval   <- unique(new_data$interval)
+
+# Data weekend
+data_weekend <- subset(new_data, days =="weekend" )
+
+steps_interval_weekend <- tapply(data_weekend$steps, data_weekend$interval,
+                                 mean,na.rm =TRUE,simplify =  FALSE)
+steps_interval_weekend <- data.frame(matrix(unlist(steps_interval_weekend),
+                                   nrow=length(steps_interval_weekend), byrow=T))
+
+names(steps_interval_weekend) <- "steps"
+steps_interval_weekend$interval   <- unique(new_data$interval)
+
+
+library(gridExtra)
+# Plot
+p1 <- ggplot(steps_interval_weekday, aes(x = interval, y = steps))+
+        geom_line(color = "red")+
+        ggtitle("5-minute interval vs Steps, Weekday") +
+        labs(x = "5-minute interval", y = "Steps")+
+        theme_minimal() +
+        theme(
+           plot.title = element_text(size=15)
+        )
+p2 <- ggplot(steps_interval_weekend, aes(x = interval, y = steps))+
+        geom_line(color = "blue")+
+        ggtitle("5-minute interval vs Steps, Weekend") +
+        labs(x = "5-minute interval", y = "Steps")+
+        theme_minimal() +
+        theme(
+           plot.title = element_text(size=15)
+        )
+grid.arrange(p1, p2, nrow = 2)
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
